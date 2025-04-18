@@ -2,7 +2,6 @@
 # Import Python Packages
 ###########################
 import os
-import json
 from datetime import datetime
 
 import torch
@@ -14,7 +13,7 @@ from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_scor
 import torch.nn.functional as F
 
 from dl_utils import train_one_epoch, test, plot_predictions
-from model import Model1, Model2, Model3
+from model import Model1, Model2, Model3, Model4, Model5
 from dataset import ObjectDataset
 
 import pandas as pd
@@ -23,9 +22,9 @@ import pandas as pd
 ####################
 # Hyperparameters
 ####################
-learning_rate = 1e-4
-batch_size = 16         
-epochs = 100              
+learning_rate = 5e-4
+batch_size = 32         
+epochs = 5              
 
 
 ####################
@@ -36,7 +35,7 @@ IMG_DIR = DATA_DIR
 LABELS_FILE = os.path.join(DATA_DIR, "annotations.csv")
 
 # Load CSV labels into a dictionary
-df = pd.read_csv(LABELS_FILE, sep=',')  # or ',' if it's comma-separated
+df = pd.read_csv(LABELS_FILE, sep=',')
 
 labels = {}
 for _, row in df.iterrows():
@@ -145,9 +144,9 @@ for epoch in range(epochs):
 
     # Compute classification metrics
     train_accuracy = multiclass_accuracy(train_y_preds, train_y_trues).item()
-    train_f1 = multiclass_f1_score(train_y_preds, train_y_trues).item()
+    train_f1 = multiclass_f1_score(train_y_preds, train_y_trues, average="macro", num_classes=9).item()
     val_accuracy = multiclass_accuracy(val_y_preds, val_y_trues).item()
-    val_f1 = multiclass_f1_score(val_y_preds, val_y_trues).item()
+    val_f1 = multiclass_f1_score(val_y_preds, val_y_trues, average="macro", num_classes=9).item()
 
     # Compute bounding box MSE
     train_bbox_mse = F.mse_loss(train_bbox_preds, train_bbox_trues).item()
@@ -190,7 +189,7 @@ test_loss, test_bbox_loss, test_y_preds, test_y_trues, test_bbox_preds, test_bbo
 
 # Compute test classification metrics
 test_accuracy = multiclass_accuracy(test_y_preds, test_y_trues).item()
-test_f1 = multiclass_f1_score(test_y_preds, test_y_trues).item()
+test_f1 = multiclass_f1_score(test_y_preds, test_y_trues, average="macro", num_classes=9).item()
 
 # Compute bounding box MSE
 test_bbox_mse = F.mse_loss(test_bbox_preds, test_bbox_trues).item()
