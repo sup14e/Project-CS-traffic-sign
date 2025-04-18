@@ -14,19 +14,18 @@ from torcheval.metrics.functional import multiclass_accuracy, multiclass_f1_scor
 import torch.nn.functional as F
 
 from dl_utils import train_one_epoch, test, plot_predictions
-from model import MultiTaskModel
+from model import Model1, Model2, Model3
 from dataset import ObjectDataset
 
-import numpy as np
 import pandas as pd
 
 
 ####################
 # Hyperparameters
 ####################
-learning_rate = 1e-3    # TODO: Change here as you see fit
-batch_size = 32         # TODO: Change here as you see fit
-epochs = 10              # TODO: Change here as you see fit
+learning_rate = 1e-4
+batch_size = 16         
+epochs = 100              
 
 
 ####################
@@ -99,12 +98,12 @@ print("works successfully :D")
 ####################
 # Model
 ####################
-device = "cuda" if torch.cuda.is_available() else "cpu"
+device = "cuda"
 print(f"Using {device} device")
 
 # TODO: Create a model
-model = MultiTaskModel().to(device) # YOUR CODE HERE
-print(model)
+model = Model3().to(device) # YOUR CODE HERE
+# print(model)
 
 
 ####################
@@ -120,68 +119,68 @@ bbox_loss_fn = nn.MSELoss() # YOUR CODE HERE
 optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate) # YOUR CODE HERE
 
 # Training loop
-# best_vloss = float('inf')
-# for epoch in range(epochs):
-#     print(f"Epoch {epoch+1} / {epochs}")
+best_vloss = float('inf')
+for epoch in range(epochs):
+    print(f"Epoch {epoch+1} / {epochs}")
 
-#     train_one_epoch(
-#         dataloader=train_dl, 
-#         model=model, 
-#         class_loss_fn=class_loss_fn, 
-#         bbox_loss_fn=bbox_loss_fn, 
-#         optimizer=optimizer, 
-#         epoch=epoch, 
-#         device=device, 
-#         writer=writer,
-#         log_step_interval=1,
-#     )
+    train_one_epoch(
+        dataloader=train_dl, 
+        model=model, 
+        class_loss_fn=class_loss_fn, 
+        bbox_loss_fn=bbox_loss_fn, 
+        optimizer=optimizer, 
+        epoch=epoch, 
+        device=device, 
+        writer=writer,
+        log_step_interval=1,
+    )
 
-#     # Compute train & validation loss
-#     train_loss, train_bbox_loss, train_y_preds, train_y_trues, train_bbox_preds, train_bbox_trues = test(
-#         train_dl, model, class_loss_fn, bbox_loss_fn, device
-#     )
-#     val_loss, val_bbox_loss, val_y_preds, val_y_trues, val_bbox_preds, val_bbox_trues = test(
-#         valid_dl, model, class_loss_fn, bbox_loss_fn, device
-#     )
+    # Compute train & validation loss
+    train_loss, train_bbox_loss, train_y_preds, train_y_trues, train_bbox_preds, train_bbox_trues = test(
+        train_dl, model, class_loss_fn, bbox_loss_fn, device
+    )
+    val_loss, val_bbox_loss, val_y_preds, val_y_trues, val_bbox_preds, val_bbox_trues = test(
+        valid_dl, model, class_loss_fn, bbox_loss_fn, device
+    )
 
-#     # Compute classification metrics
-#     train_accuracy = multiclass_accuracy(train_y_preds, train_y_trues).item()
-#     train_f1 = multiclass_f1_score(train_y_preds, train_y_trues).item()
-#     val_accuracy = multiclass_accuracy(val_y_preds, val_y_trues).item()
-#     val_f1 = multiclass_f1_score(val_y_preds, val_y_trues).item()
+    # Compute classification metrics
+    train_accuracy = multiclass_accuracy(train_y_preds, train_y_trues).item()
+    train_f1 = multiclass_f1_score(train_y_preds, train_y_trues).item()
+    val_accuracy = multiclass_accuracy(val_y_preds, val_y_trues).item()
+    val_f1 = multiclass_f1_score(val_y_preds, val_y_trues).item()
 
-#     # Compute bounding box MSE
-#     train_bbox_mse = F.mse_loss(train_bbox_preds, train_bbox_trues).item()
-#     val_bbox_mse = F.mse_loss(val_bbox_preds, val_bbox_trues).item()
+    # Compute bounding box MSE
+    train_bbox_mse = F.mse_loss(train_bbox_preds, train_bbox_trues).item()
+    val_bbox_mse = F.mse_loss(val_bbox_preds, val_bbox_trues).item()
 
-#     # Log training performance
-#     writer.add_scalars('Train vs. Valid/loss', 
-#         {'train': train_loss, 'valid': val_loss}, 
-#         epoch)
-#     writer.add_scalars('Train vs. Valid/bbox_mse', 
-#         {'train': train_bbox_mse, 'valid': val_bbox_mse}, 
-#         epoch)
-#     writer.add_scalars('Train vs. Valid/acc', 
-#         {'train': train_accuracy, 'valid': val_accuracy}, 
-#         epoch)
-#     writer.add_scalars('Train vs. Valid/f1', 
-#         {'train': train_f1, 'valid': val_f1}, 
-#         epoch)
+    # Log training performance
+    writer.add_scalars('Train vs. Valid/loss', 
+        {'train': train_loss, 'valid': val_loss}, 
+        epoch)
+    writer.add_scalars('Train vs. Valid/bbox_mse', 
+        {'train': train_bbox_mse, 'valid': val_bbox_mse}, 
+        epoch)
+    writer.add_scalars('Train vs. Valid/acc', 
+        {'train': train_accuracy, 'valid': val_accuracy}, 
+        epoch)
+    writer.add_scalars('Train vs. Valid/f1', 
+        {'train': train_f1, 'valid': val_f1}, 
+        epoch)
 
-#     # Save the best model
-#     if val_loss < best_vloss:
-#         best_vloss = val_loss
-#         torch.save(model.state_dict(), 'model_best_vloss.pth')
-#         print('Saved best model to model_best_vloss.pth')
+    # Save the best model
+    if val_loss < best_vloss:
+        best_vloss = val_loss
+        torch.save(model.state_dict(), 'model_best_vloss.pth')
+        print('Saved best model to model_best_vloss.pth')
 
-# print("Training Complete!")
+print("Training Complete!")
 
 
 ###########################
 # Evaluate on the Test Set
 ###########################
 # TODO: Load the best model
-model = MultiTaskModel().to(device) # YOUR CODE HERE
+model = Model3().to(device) # YOUR CODE HERE
 model.load_state_dict(torch.load("model_best_vloss.pth"))
 
 # Evaluate on the test set

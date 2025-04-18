@@ -1,31 +1,76 @@
 import torch
 import torch.nn as nn
-from torchvision.models import resnet18, ResNet18_Weights
+from torchvision.models import ViT_B_16_Weights, vit_b_16, Swin_V2_B_Weights, swin_v2_b, vgg11, VGG11_Weights
 
-class MultiTaskModel(nn.Module):
+class Model1(nn.Module):
     def __init__(self, num_classes=9):
-        super(MultiTaskModel, self).__init__()
+        super(Model1, self).__init__()
         
-        # Load ResNet backbone
-        weights = ResNet18_Weights.DEFAULT
-        resnet = resnet18(weights=weights)
-        self.backbone = nn.Sequential(*list(resnet.children())[:-1])  # Remove fully connected layer
+        weights = ViT_B_16_Weights.DEFAULT
+        vitB = vit_b_16(weights=weights)
+        
+        self.backbone = vitB
+        self.backbone.heads = nn.Identity()
 
-        # The output size of from self.backbone
-        n_features = resnet.fc.in_features
+        n_features = vitB.hidden_dim
 
-        # TODO: Classification head
-        self.classifier = nn.Linear(n_features, num_classes) # YOUR CODE HERE
+        self.classifier = nn.Linear(n_features, num_classes) 
 
-        # TODO: Localization head (bounding box regression)
-        self.regressor = nn.Linear(n_features, 4) # YOUR CODE HERE
+        self.regressor = nn.Linear(n_features, 4) 
 
     def forward(self, x):
         out = self.backbone(x)
-        out = torch.flatten(out, 1)  # Flatten the output
 
-        # TODO: Model output
-        class_out = self.classifier(out) # YOUR CODE HERE for classification output
-        bbox_out = self.regressor(out) # YOUR CODE HERE for bounding box regression output
+        class_out = self.classifier(out)
+        bbox_out = self.regressor(out) 
+
+        return class_out, bbox_out
+    
+class Model2(nn.Module):
+    def __init__(self, num_classes=9):
+        super(Model2, self).__init__()
+        
+        weights = Swin_V2_B_Weights.DEFAULT
+        swin = swin_v2_b(weights=weights)
+
+        n_features = swin.head.in_features
+
+        swin.head = nn.Identity()
+        self.backbone = swin
+
+        self.classifier = nn.Linear(n_features, num_classes) 
+
+        self.regressor = nn.Linear(n_features, 4) 
+
+    def forward(self, x):
+        out = self.backbone(x)
+
+        class_out = self.classifier(out)
+        bbox_out = self.regressor(out) 
+
+        return class_out, bbox_out
+    
+class Model3(nn.Module):
+    def __init__(self, num_classes=9):
+        super(Model3, self).__init__()
+        
+        weights = VGG11_Weights.DEFAULT
+        vgg = vgg11(weights=weights)
+
+        self.backbone = vgg.features
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))
+        n_features = 512
+
+        self.classifier = nn.Linear(n_features, num_classes) 
+
+        self.regressor = nn.Linear(n_features, 4) 
+
+    def forward(self, x):
+        out = self.backbone(x)
+        out = self.pool(out)
+        out = torch.flatten(out, 1)
+
+        class_out = self.classifier(out)
+        bbox_out = self.regressor(out) 
 
         return class_out, bbox_out
