@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-from torchvision.models import ViT_B_16_Weights, vit_b_16, Swin_V2_B_Weights, swin_v2_b, vgg11, VGG11_Weights, resnet50, ResNet50_Weights
+from torchvision.models import ViT_B_16_Weights, vit_b_16, vgg11, VGG11_Weights, resnet50, ResNet50_Weights
 
 class Model1(nn.Module):
     def __init__(self, num_classes=9):
@@ -39,30 +39,6 @@ class Model2(nn.Module):
     def __init__(self, num_classes=9):
         super(Model2, self).__init__()
         
-        weights = Swin_V2_B_Weights.DEFAULT
-        swin = swin_v2_b(weights=weights)
-
-        n_features = swin.head.in_features
-
-        swin.head = nn.Identity()
-        self.backbone = swin
-
-        self.classifier = nn.Linear(n_features, num_classes) 
-
-        self.regressor = nn.Linear(n_features, 4) 
-
-    def forward(self, x):
-        out = self.backbone(x)
-
-        class_out = self.classifier(out)
-        bbox_out = self.regressor(out) 
-
-        return class_out, bbox_out
-    
-class Model3(nn.Module):
-    def __init__(self, num_classes=9):
-        super(Model3, self).__init__()
-        
         weights = VGG11_Weights.DEFAULT
         vgg = vgg11(weights=weights)
 
@@ -84,9 +60,9 @@ class Model3(nn.Module):
 
         return class_out, bbox_out
 
-class Model4(nn.Module):
+class Model3(nn.Module):
     def __init__(self, num_classes=9, dropout_p=0.5):
-        super(Model4, self).__init__()
+        super(Model3, self).__init__()
 
         # Load pretrained VGG11
         weights = VGG11_Weights.DEFAULT
@@ -137,9 +113,9 @@ class Model4(nn.Module):
 
         return class_out, bbox_out
 
-class Model5(nn.Module):
+class Model4(nn.Module):
     def __init__(self, num_classes=9):
-        super(Model5, self).__init__()
+        super(Model4, self).__init__()
         
         # Load pretrained ResNet50
         weights = ResNet50_Weights.DEFAULT
@@ -176,9 +152,9 @@ class Model5(nn.Module):
 
         return class_out, bbox_out
 
-class Model6(nn.Module):
+class Model5(nn.Module):
     def __init__(self, num_classes=9):
-        super(Model6, self).__init__()
+        super(Model5, self).__init__()
 
         # Use ResNet-50 instead of ResNet-18 for better feature extraction
         resnet = resnet50(weights='IMAGENET1K_V1')
@@ -196,7 +172,7 @@ class Model6(nn.Module):
         bbox_out = self.regressor(out)
         return class_out, bbox_out
 
-class Model7(nn.Module):
+class Model6(nn.Module):
     def __init__(self, num_classes=9):
         super().__init__()
         
