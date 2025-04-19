@@ -136,7 +136,7 @@ class Model4(nn.Module):
         bbox_out = self.regressor(out)
 
         return class_out, bbox_out
-    
+
 class Model5(nn.Module):
     def __init__(self, num_classes=9):
         super(Model5, self).__init__()
@@ -173,5 +173,66 @@ class Model5(nn.Module):
         
         class_out = self.classifier(out)
         bbox_out = self.regressor(out)
+
+        return class_out, bbox_out
+
+class Model6(nn.Module):
+    def __init__(self, num_classes=9):
+        super(Model6, self).__init__()
+
+        # Use ResNet-50 instead of ResNet-18 for better feature extraction
+        resnet = resnet50(weights='IMAGENET1K_V1')
+
+        n_features = resnet.fc.in_features
+        resnet.fc = nn.Identity()  # Replace the final fully connected layer with Identity
+
+        self.backbone = resnet
+        self.classifier = nn.Linear(n_features, num_classes)
+        self.regressor = nn.Linear(n_features, 4)
+
+    def forward(self, x):
+        out = self.backbone(x)
+        class_out = self.classifier(out)
+        bbox_out = self.regressor(out)
+        return class_out, bbox_out
+
+class Model7(nn.Module):
+    def __init__(self, num_classes=9):
+        super().__init__()
+        
+        # Load pretrained ResNet50
+        weights = ResNet50_Weights.DEFAULT
+        backbone = resnet50(weights=weights)
+
+        # Keep layers up to conv5_x block (exclude avgpool and fc)
+        self.backbone = nn.Sequential(*list(backbone.children())[:-2])  
+        self.pool = nn.AdaptiveAvgPool2d((1, 1))  # Global average pooling
+        n_features = 2048  # Output channels from ResNet50 conv5_x
+
+        # Classification head
+        self.classifier = nn.Sequential(
+            nn.Linear(n_features, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, num_classes)
+        )
+
+        # Bounding box regressor head
+        self.regressor = nn.Sequential(
+            nn.Linear(n_features, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Dropout(0.3),
+            nn.Linear(512, 4)  # Format: [x_min, y_min, x_max, y_max]
+        )
+
+    def forward(self, x):
+        x = self.backbone(x)
+        x = self.pool(x)
+        x = torch.flatten(x, 1)
+
+        class_out = self.classifier(x)
+        bbox_out = self.regressor(x)
 
         return class_out, bbox_out
