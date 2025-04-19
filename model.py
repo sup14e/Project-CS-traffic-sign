@@ -7,23 +7,32 @@ class Model1(nn.Module):
         super(Model1, self).__init__()
         
         weights = ViT_B_16_Weights.DEFAULT
-        vitB = vit_b_16(weights=weights)
-        
-        self.backbone = vitB
-        self.backbone.heads = nn.Identity()
+        vit = vit_b_16(weights=weights)
+        vit.heads = nn.Identity()  # Remove classification head
+        self.backbone = vit
+        n_features = vit.hidden_dim
 
-        n_features = vitB.hidden_dim
+        # Classification head
+        self.classifier = nn.Sequential(
+            nn.Linear(n_features, 256),
+            nn.ReLU(),
+            nn.Linear(256, num_classes)
+        )
 
-        self.classifier = nn.Linear(n_features, num_classes) 
-
-        self.regressor = nn.Linear(n_features, 4) 
+        # Bounding box regressor head
+        self.regressor = nn.Sequential(
+            nn.Linear(n_features, 256),
+            nn.ReLU(),
+            nn.Linear(256, 128),
+            nn.ReLU(),
+            nn.Linear(128, 4),  # Output: [x_min, y_min, x_max, y_max] normalized
+            nn.Sigmoid()        # Ensures outputs are in [0, 1]
+        )
 
     def forward(self, x):
-        out = self.backbone(x)
-
-        class_out = self.classifier(out)
-        bbox_out = self.regressor(out) 
-
+        features = self.backbone(x)
+        class_out = self.classifier(features)
+        bbox_out = self.regressor(features)
         return class_out, bbox_out
     
 class Model2(nn.Module):

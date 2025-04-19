@@ -2,51 +2,72 @@ import torch
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.patches as patches
+from torchvision.ops import generalized_box_iou_loss, box_convert
 
-def train_one_epoch(dataloader, model, class_loss_fn, bbox_loss_fn, optimizer, epoch, device, writer, log_step_interval=10):
+def train_one_epoch(dataloader, model, class_loss_fn, bbox_loss_fn, optimizer, epoch, device, writer, log_step_interval=10, accumulation_steps=2):
     model.train()
     running_loss = 0.0
     running_class_loss = 0.0
     running_bbox_loss = 0.0
+    
+    optimizer.zero_grad()  # Zero gradients once at the beginning
     
     for i, (images, targets, bboxes) in enumerate(dataloader):
         images = images.to(device)
         targets = targets.to(device)
         bboxes = bboxes.to(device)
         
-        # Zero gradients
-        optimizer.zero_grad()
-        
         # Forward pass
         class_preds, bbox_preds = model(images)
         
         # Calculate losses
         class_loss = class_loss_fn(class_preds, targets)
-        bbox_loss = bbox_loss_fn(bbox_preds, bboxes)
+        # Convert predicted and target bboxes to xyxy format
+        bbox_preds_xyxy = box_convert(bbox_preds, in_fmt="cxcywh", out_fmt="xyxy")
+        bboxes_xyxy = box_convert(bboxes, in_fmt="cxcywh", out_fmt="xyxy")
+
+        # Compute a weighted combination of L1 and GIoU loss
+        l1 = torch.nn.L1Loss()
+        l1_loss = l1(bbox_preds, bboxes)
+        giou_loss = generalized_box_iou_loss(bbox_preds_xyxy, bboxes_xyxy, reduction='mean')
+
+        bbox_loss = 0.7 * l1_loss + 0.3 * giou_loss
         
         # Combined loss - bbox loss weighted slightly higher for accurate localization
         loss = class_loss + 1.5 * bbox_loss
         
-        # Backward pass and optimize
+        # Normalize loss by accumulation steps
+        loss = loss / accumulation_steps
+        
+        # Backward pass
         loss.backward()
-        optimizer.step()
+        
+        # Only update weights after accumulation_steps iterations
+        if (i + 1) % accumulation_steps == 0:
+            optimizer.step()
+            optimizer.zero_grad()
         
         # Update running losses
-        running_loss += loss.item()
+        running_loss += loss.item() * accumulation_steps  # Denormalize for logging
         running_class_loss += class_loss.item()
         running_bbox_loss += bbox_loss.item()
         
         # Log to TensorBoard
         if (i + 1) % log_step_interval == 0:
             step = epoch * len(dataloader) + i
-            writer.add_scalar('Training/Loss', loss.item(), step)
+            writer.add_scalar('Training/Loss', loss.item() * accumulation_steps, step)
             writer.add_scalar('Training/ClassLoss', class_loss.item(), step)
             writer.add_scalar('Training/BBoxLoss', bbox_loss.item(), step)
             
             print(f"Epoch {epoch+1}, Batch {i+1}/{len(dataloader)}, "
-                  f"Loss: {loss.item():.4f}, Class Loss: {class_loss.item():.4f}, "
+                  f"Loss: {loss.item() * accumulation_steps:.4f}, Class Loss: {class_loss.item():.4f}, "
                   f"BBox Loss: {bbox_loss.item():.4f}")
     
+    # Perform final optimization step if needed
+    if len(dataloader) % accumulation_steps != 0:
+        optimizer.step()
+        optimizer.zero_grad()
+        
     avg_loss = running_loss / len(dataloader)
     avg_class_loss = running_class_loss / len(dataloader)
     avg_bbox_loss = running_bbox_loss / len(dataloader)
@@ -79,7 +100,15 @@ def test(dataloader, model, class_loss_fn, bbox_loss_fn, device):
             
             # Calculate losses
             class_loss = class_loss_fn(class_preds, targets)
-            bbox_loss = bbox_loss_fn(bbox_preds, bboxes)
+            bbox_preds_xyxy = box_convert(bbox_preds, in_fmt="cxcywh", out_fmt="xyxy")
+            bboxes_xyxy = box_convert(bboxes, in_fmt="cxcywh", out_fmt="xyxy")
+
+            l1 = torch.nn.L1Loss()
+            l1_loss = l1(bbox_preds, bboxes)
+            giou_loss = generalized_box_iou_loss(bbox_preds_xyxy, bboxes_xyxy, reduction='mean')
+
+            bbox_loss = 0.7 * l1_loss + 0.3 * giou_loss
+
             
             # Update total losses
             total_loss += class_loss.item()

@@ -22,9 +22,9 @@ import pandas as pd
 ####################
 # Hyperparameters
 ####################
-learning_rate = 5e-4
+learning_rate = 3e-4
 batch_size = 32         
-epochs = 5              
+epochs = 30              
 
 
 ####################
@@ -101,7 +101,7 @@ device = "cuda"
 print(f"Using {device} device")
 
 # TODO: Create a model
-model = Model3().to(device) # YOUR CODE HERE
+model = Model1().to(device) # YOUR CODE HERE
 # print(model)
 
 
@@ -179,7 +179,7 @@ print("Training Complete!")
 # Evaluate on the Test Set
 ###########################
 # TODO: Load the best model
-model = Model3().to(device) # YOUR CODE HERE
+model = Model1().to(device) # YOUR CODE HERE
 model.load_state_dict(torch.load("model_best_vloss.pth"))
 
 # Evaluate on the test set
